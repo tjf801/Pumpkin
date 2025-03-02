@@ -22,7 +22,7 @@ pub static BIOME_ENTRIES: LazyLock<SearchTree<Biome>> = LazyLock::new(|| {
 });
 
 thread_local! {
-    static LAST_RESULT_NODE: RefCell<Option<TreeLeafNode<Biome>>> = RefCell::new(None);
+    static LAST_RESULT_NODE: RefCell<Option<TreeLeafNode<Biome>>> = const {RefCell::new(None) };
 }
 
 #[enum_dispatch]
