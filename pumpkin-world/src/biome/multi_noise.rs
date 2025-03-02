@@ -4,17 +4,17 @@ use pumpkin_data::chunk::Biome;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::dimension::Dimension;
-fn to_long(float: f64) -> i64 {
+pub fn to_long(float: f32) -> i64 {
     (float * 1000.0) as i64
 }
 #[derive(Clone, Serialize, Deserialize)]
 pub struct NoiseValuePoint {
-    pub temperature: f64,
-    pub erosion: f64,
-    pub depth: f64,
-    pub continents: f64,
-    pub weirdness: f64,
-    pub humidity: f64,
+    pub temperature: i64,
+    pub humidity: i64,
+    pub continentalness: i64,
+    pub erosion: i64,
+    pub depth: i64,
+    pub weirdness: i64,
 }
 
 #[derive(Clone, Deserialize)]
@@ -56,7 +56,7 @@ impl<'de> Deserialize<'de> for ParameterRange {
     where
         D: Deserializer<'de>,
     {
-        let arr: [f64; 2] = Deserialize::deserialize(deserializer)?;
+        let arr: [f32; 2] = Deserialize::deserialize(deserializer)?;
         Ok(ParameterRange {
             min: to_long(arr[0]),
             max: to_long(arr[1]),
@@ -68,7 +68,7 @@ impl ParameterRange {
     fn get_distance(&self, noise: i64) -> i64 {
         let l = noise - self.max;
         let m = self.min - noise;
-        return if l > 0 { l } else { m.max(0) };
+        if l > 0 { l } else { m.max(0) }
     }
 
     pub fn combine(&self, other: &Self) -> Self {
@@ -85,6 +85,7 @@ pub struct BiomeEntries {
 }
 
 #[derive(Clone)]
+/// T = Biome
 pub struct SearchTree<T: Clone> {
     root: TreeNode<T>,
 }
@@ -133,10 +134,7 @@ fn create_node<T: Clone>(sub_tree: Vec<TreeNode<T>>) -> TreeNode<T> {
         sub_tree.into_iter().next().unwrap()
     } else if sub_tree.len() <= 6 {
         let mut sorted_sub_tree = sub_tree;
-        sorted_sub_tree.sort_by_key(|a| {
-            let sum = calculate_midpoint_sum(a);
-            sum
-        });
+        sorted_sub_tree.sort_by_key(|a| calculate_midpoint_sum(a));
         let bounds = calculate_bounds(&sorted_sub_tree);
         TreeNode::Branch {
             children: sorted_sub_tree,
@@ -170,7 +168,7 @@ fn create_node<T: Clone>(sub_tree: Vec<TreeNode<T>>) -> TreeNode<T> {
     }
 }
 
-fn sort_tree<T: Clone>(sub_tree: &mut Vec<TreeNode<T>>, parameter_offset: usize, abs: bool) {
+fn sort_tree<T: Clone>(sub_tree: &mut [TreeNode<T>], parameter_offset: usize, abs: bool) {
     sub_tree.sort_by(|a, b| {
         for i in 0..7 {
             // Calculate the parameter index in cyclic order
@@ -238,7 +236,7 @@ fn get_batched_tree<T: Clone>(nodes: Vec<TreeNode<T>>) -> Vec<TreeNode<T>> {
 }
 
 fn calculate_bounds<T: Clone>(nodes: &[TreeNode<T>]) -> [ParameterRange; 7] {
-    let mut bounds = nodes[0].bounds().clone();
+    let mut bounds = *nodes[0].bounds();
 
     for node in nodes.iter().skip(1) {
         for (i, range) in node.bounds().iter().enumerate() {
@@ -273,9 +271,9 @@ impl<T: Clone> TreeNode<T> {
         TreeNode::Leaf(TreeLeafNode { value, point })
     }
 
-    pub fn new_branch(children: Vec<TreeNode<T>>, bounds: [ParameterRange; 7]) -> Self {
-        TreeNode::Branch { children, bounds }
-    }
+    // pub fn new_branch(children: Vec<TreeNode<T>>, bounds: [ParameterRange; 7]) -> Self {
+    //     TreeNode::Branch { children, bounds }
+    // }
 
     pub fn get_node(
         &self,
@@ -311,8 +309,8 @@ impl<T: Clone> TreeNode<T> {
 
     pub fn bounds(&self) -> &[ParameterRange; 7] {
         match self {
-            TreeNode::Leaf(TreeLeafNode { point, .. }) => &point,
-            TreeNode::Branch { bounds, .. } => &bounds,
+            TreeNode::Leaf(TreeLeafNode { point, .. }) => point,
+            TreeNode::Branch { bounds, .. } => bounds,
         }
     }
 

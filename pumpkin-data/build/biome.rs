@@ -2,8 +2,6 @@ use heck::ToPascalCase;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
-use crate::array_to_tokenstream;
-
 pub(crate) fn build() -> TokenStream {
     println!("cargo:rerun-if-changed=../assets/biome.json");
 
